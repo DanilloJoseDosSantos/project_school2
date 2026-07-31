@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Principal - Sistema Escolar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-full flex bg-slate-100 font-sans text-slate-800 antialiased overflow-hidden">
+
+    <!-- Menu Lateral Fixo -->
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col justify-between hidden md:flex shadow-xl">
+        <div class="p-6 space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🎓</span>
+                <div>
+                    <h1 class="text-base font-bold text-white tracking-wide">Sistema Escolar</h1>
+                    <p class="text-[10px] text-slate-400">Painel Administrativo</p>
+                </div>
+            </div>
+            <nav class="space-y-1.5 pt-4 border-t border-slate-800">
+                <button onclick="mudarAba('dashboard')" id="menuDashboard" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl bg-indigo-600 text-white transition">📊 Dashboard</button>
+                <button onclick="mudarAba('alunos')" id="menuAlunos" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl hover:bg-slate-800 hover:text-white transition">👥 Alunos</button>
+                <button onclick="mudarAba('professores')" id="menuProfessores" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl hover:bg-slate-800 hover:text-white transition">👨‍🏫 Professores</button>
+                <button onclick="mudarAba('colaboradores')" id="menuColaboradores" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl hover:bg-slate-800 hover:text-white transition">👷 Colaboradores</button>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-slate-800 flex items-center justify-between text-xs">
+            <span class="text-slate-400"><strong>{{ usuario_nome }}</strong></span>
+            <a href="/logout" class="px-3 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg transition font-semibold">Sair</a>
+        </div>
+    </aside>
+
+    <!-- Área Principal de Conteúdo -->
+    <main class="flex-1 flex flex-col h-full overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
+            <h2 id="tituloSecao" class="text-xl font-extrabold text-slate-900">Dashboard Geral</h2>
+            <div class="flex items-center gap-2">
+                <button onclick="abrirModal('modalAluno')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow transition">+ Aluno</button>
+                <button onclick="abrirModal('modalProfessor')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow transition">+ Professor</button>
+                <button onclick="abrirModal('modalColaborador')" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow transition">+ Colaborador</button>
+            </div>
+        </header>
+
+        <div class="p-8 space-y-8 flex-1">
+            {% if erro_aluno %}
+            <div class="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded-xl font-semibold text-xs">
+                ⚠️ {{ erro_aluno }}
+            </div>
+            {% endif %}
+
+            <!-- Cards de Dashboard em Tempo Real -->
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
+                    <div><p class="text-xs font-semibold text-slate-400 uppercase">Total de Alunos</p><h3 class="text-3xl font-bold text-slate-900 mt-1">{{ totais.alunos }}</h3></div>
+                    <span class="text-3xl bg-indigo-50 p-3 rounded-xl">👥</span>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
+                    <div><p class="text-xs font-semibold text-slate-400 uppercase">Total de Professores</p><h3 class="text-3xl font-bold text-slate-900 mt-1">{{ totais.professores }}</h3></div>
+                    <span class="text-3xl bg-emerald-50 p-3 rounded-xl">👨‍🏫</span>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
+                    <div><p class="text-xs font-semibold text-slate-400 uppercase">Colaboradores</p><h3 class="text-3xl font-bold text-slate-900 mt-1">{{ totais.colaboradores }}</h3></div>
+                    <span class="text-3xl bg-amber-50 p-3 rounded-xl">👷</span>
+                </div>
+            </section>
+
+            <!-- 1. TABELA DE ALUNOS -->
+            <div id="secaoAlunos" class="secao-conteudo space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-800">Fichas de Alunos Cadastrados</h3>
+                    <input type="text" onkeyup="filtrarTabela(this, 'tabelaAlunos')" placeholder="Filtrar aluno..." class="px-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none">
+                </div>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse" id="tabelaAlunos">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
+                                <th class="p-4">Matrícula</th><th class="p-4">Nome</th><th class="p-4">Série / Turma</th><th class="p-4">Responsável</th><th class="p-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">
+                            {% for a in alunos %}
+                            <tr>
+                                <td class="p-4 font-mono text-xs text-indigo-600">{{ a.matricula }}</td>
+                                <td class="p-4 font-semibold text-slate-800">{{ a.nome }}</td>
+                                <td class="p-4 text-slate-600">{{ a.serie }} - {{ a.turma }}</td>
+                                <td class="p-4 text-slate-600">{{ a.responsavel or 'Maior de Idade' }}</td>
+                                <td class="p-4 text-right">
+                                    <button onclick="abrirEdicaoAluno(this)" data-objeto='{{ a | tojson | safe }}' class="px-3 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-xs font-semibold transition">✏️ Editar</button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="p-6 text-center text-slate-400">Nenhum aluno cadastrado.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. TABELA DE PROFESSORES -->
+            <div id="secaoProfessores" class="secao-conteudo space-y-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-800">Corpo Docente Cadastrado</h3>
+                    <input type="text" onkeyup="filtrarTabela(this, 'tabelaProfessores')" placeholder="Filtrar professor..." class="px-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none">
+                </div>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse" id="tabelaProfessores">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
+                                <th class="p-4">Nome</th><th class="p-4">Especialidade</th><th class="p-4">Email</th><th class="p-4">Salário</th><th class="p-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">
+                            {% for p in professores %}
+                            <tr>
+                                <td class="p-4 font-semibold text-slate-800">{{ p.nome }}</td>
+                                <td class="p-4 text-slate-600">{{ p.especialidade }}</td>
+                                <td class="p-4 text-slate-600">{{ p.email }}</td>
+                                <td class="p-4 text-slate-600">R$ {{ p.salario or '0.00' }}</td>
+                                <td class="p-4 text-right">
+                                    <button onclick="abrirEdicaoProfessor(this)" data-objeto='{{ p | tojson | safe }}' class="px-3 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg text-xs font-semibold transition">✏️ Editar</button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="p-6 text-center text-slate-400">Nenhum professor cadastrado.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. TABELA DE COLABORADORES -->
+            <div id="secaoColaboradores" class="secao-conteudo space-y-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-800">Colaboradores e Funcionários</h3>
+                    <input type="text" onkeyup="filtrarTabela(this, 'tabelaColaboradores')" placeholder="Filtrar colaborador..." class="px-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none">
+                </div>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse" id="tabelaColaboradores">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
+                                <th class="p-4">Nome</th><th class="p-4">CPF</th><th class="p-4">Função</th><th class="p-4">Email</th><th class="p-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">
+                            {% for c in colaboradores %}
+                            <tr>
+                                <td class="p-4 font-semibold text-slate-800">{{ c.nome }}</td>
+                                <td class="p-4 text-slate-600">{{ c.cpf }}</td>
+                                <td class="p-4 font-medium text-indigo-600">{{ c.funcao }}</td>
+                                <td class="p-4 text-slate-600">{{ c.email }}</td>
+                                <td class="p-4 text-right">
+                                    <button onclick="abrirEdicaoColaborador(this)" data-objeto='{{ c | tojson | safe }}' class="px-3 py-1 bg-slate-100 hover:bg-amber-50 hover:text-amber-600 rounded-lg text-xs font-semibold transition">✏️ Editar</button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="p-6 text-center text-slate-400">Nenhum colaborador cadastrado.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL CADASTRO DE ALUNO -->
+    <div id="modalAluno" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-lg text-slate-900">Novo Cadastro de Aluno</h3><button onclick="fecharModal('modalAluno')" class="text-slate-400 font-bold">&times;</button></div>
+            <form action="/salvar/aluno" method="POST" onsubmit="return validarFormularioCpfEmail(this)" class="space-y-4">
+                <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Nome Completo *</label><input type="text" name="nome" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Data de Nascimento *</label><input type="date" name="data_nascimento" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">CPF do Aluno</label><input type="text" name="cpf" placeholder="000.000.000-00" class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Série *</label><input type="text" name="serie" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Turma *</label><input type="text" name="turma" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                </div>
+                <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Email</label><input type="email" name="email" placeholder="exemplo@dominio.com" class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                <div class="p-4 bg-slate-50 rounded-xl space-y-3 border border-slate-200">
+                    <h4 class="text-xs font-bold text-indigo-600 uppercase">Dados do Responsável (Obrigatório para menores de 18 anos)</h4>
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Nome do Responsável</label><input type="text" id="respNome" name="responsavel_nome" class="w-full p-2 text-sm bg-white border rounded-xl"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="respCpf" name="responsavel_cpf" placeholder="CPF Responsável" class="p-2 text-sm bg-white border rounded-xl">
+                        <input type="text" id="respTel" name="responsavel_telefone" placeholder="Telefone" class="p-2 text-sm bg-white border rounded-xl">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="fecharModal('modalAluno')" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Cancelar</button><button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold">Salvar Aluno</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR ALUNO -->
+    <div id="modalEditarAluno" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-lg text-slate-900">Editar Aluno</h3><button onclick="fecharModal('modalEditarAluno')" class="text-slate-400 font-bold">&times;</button></div>
+            <form id="formEditarAluno" method="POST" class="space-y-4">
+                <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Nome Completo *</label><input type="text" id="editAlunoNome" name="nome" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Data de Nascimento *</label><input type="date" id="editAlunoNasc" name="data_nascimento" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">CPF do Aluno</label><input type="text" id="editAlunoCpf" name="cpf" class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Série *</label><input type="text" id="editAlunoSerie" name="serie" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Turma *</label><input type="text" id="editAlunoTurma" name="turma" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                </div>
+                <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Email</label><input type="email" id="editAlunoEmail" name="email" class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl"></div>
+                <div class="p-4 bg-slate-50 rounded-xl space-y-3 border border-slate-200">
+                    <h4 class="text-xs font-bold text-indigo-600 uppercase">Dados do Responsável</h4>
+                    <div class="space-y-1"><label class="text-xs font-semibold text-slate-600">Nome do Responsável</label><input type="text" id="editRespNome" name="responsavel_nome" class="w-full p-2 text-sm bg-white border rounded-xl"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="editRespCpf" name="responsavel_cpf" placeholder="CPF Responsável" class="p-2 text-sm bg-white border rounded-xl">
+                        <input type="text" id="editRespTel" name="responsavel_telefone" placeholder="Telefone" class="p-2 text-sm bg-white border rounded-xl">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="fecharModal('modalEditarAluno')" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Cancelar</button><button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold">Salvar Alterações</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CADASTRO DE PROFESSOR -->
+    <div id="modalProfessor" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-lg text-slate-900">Novo Professor</h3><button onclick="fecharModal('modalProfessor')" class="text-slate-400">&times;</button></div>
+            <form action="/salvar/professor" method="POST" onsubmit="return validarFormularioCpfEmail(this)" class="space-y-3">
+                <input type="text" name="nome" placeholder="Nome Completo *" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" name="cpf" placeholder="CPF * (000.000.000-00)" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                    <input type="email" name="email" placeholder="Email * (ex@dominio.com)" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" name="especialidade" placeholder="Especialidade *" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                    <input type="text" name="disciplinas" placeholder="Disciplinas" class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                </div>
+                <input type="number" step="0.01" name="salario" placeholder="Salário (R$)" class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <input type="text" name="endereco" placeholder="Endereço Completo" class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="fecharModal('modalProfessor')" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Cancelar</button><button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold">Salvar Professor</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR PROFESSOR -->
+    <div id="modalEditarProfessor" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-lg text-slate-900">Editar Professor</h3><button onclick="fecharModal('modalEditarProfessor')" class="text-slate-400">&times;</button></div>
+            <form id="formEditarProfessor" method="POST" class="space-y-3">
+                <input type="text" id="editProfNome" name="nome" placeholder="Nome Completo *" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="editProfCpf" name="cpf" placeholder="CPF *" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                    <input type="email" id="editProfEmail" name="email" placeholder="Email *" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="editProfEsp" name="especialidade" placeholder="Especialidade *" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                    <input type="text" id="editProfDisc" name="disciplinas" placeholder="Disciplinas" class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                </div>
+                <input type="number" step="0.01" id="editProfSalario" name="salario" placeholder="Salário (R$)" class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <input type="text" id="editProfEnd" name="endereco" placeholder="Endereço" class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="fecharModal('modalEditarProfessor')" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Cancelar</button><button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold">Salvar Alterações</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CADASTRO DE COLABORADOR -->
+    <div id="modalColaborador" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-lg text-slate-900">Novo Colaborador</h3><button onclick="fecharModal('modalColaborador')" class="text-slate-400">&times;</button></div>
+            <form action="/salvar/colaborador" method="POST" onsubmit="return validarFormularioCpfEmail(this)" class="space-y-3">
+                <input type="text" name="nome" placeholder="Nome Completo *" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" name="cpf" placeholder="CPF * (000.000.000-00)" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                    <input type="text" name="funcao" placeholder="Função / Cargo *" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                </div>
+                <input type="email" name="email" placeholder="Email * (ex@dominio.com)" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <input type="text" name="endereco" placeholder="Endereço Completo *" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="fecharModal('modalColaborador')" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Cancelar</button><button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-xl text-sm font-semibold">Salvar Colaborador</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR COLABORADOR -->
+    <div id="modalEditarColaborador" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-lg text-slate-900">Editar Colaborador</h3><button onclick="fecharModal('modalEditarColaborador')" class="text-slate-400">&times;</button></div>
+            <form id="formEditarColaborador" method="POST" class="space-y-3">
+                <input type="text" id="editColabNome" name="nome" placeholder="Nome Completo *" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="editColabCpf" name="cpf" placeholder="CPF *" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                    <input type="text" id="editColabFuncao" name="funcao" placeholder="Função / Cargo *" required class="p-2.5 text-sm bg-slate-50 border rounded-xl">
+                </div>
+                <input type="email" id="editColabEmail" name="email" placeholder="Email *" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <input type="text" id="editColabEnd" name="endereco" placeholder="Endereço Completo *" required class="w-full p-2.5 text-sm bg-slate-50 border rounded-xl">
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="fecharModal('modalEditarColaborador')" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Cancelar</button><button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-xl text-sm font-semibold">Salvar Alterações</button></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function mudarAba(aba) {
+            document.querySelectorAll('.secao-conteudo').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('aside nav button').forEach(el => el.classList.remove('bg-indigo-600', 'text-white'));
+
+            if (aba === 'dashboard') {
+                document.getElementById('secaoAlunos').classList.remove('hidden');
+                document.getElementById('secaoProfessores').classList.remove('hidden');
+                document.getElementById('secaoColaboradores').classList.remove('hidden');
+                document.getElementById('tituloSecao').innerText = "Dashboard Geral";
+                document.getElementById('menuDashboard').classList.add('bg-indigo-600', 'text-white');
+            } else if (aba === 'alunos') {
+                document.getElementById('secaoAlunos').classList.remove('hidden');
+                document.getElementById('tituloSecao').innerText = "Gerenciamento de Alunos";
+                document.getElementById('menuAlunos').classList.add('bg-indigo-600', 'text-white');
+            } else if (aba === 'professores') {
+                document.getElementById('secaoProfessores').classList.remove('hidden');
+                document.getElementById('tituloSecao').innerText = "Gerenciamento de Professores";
+                document.getElementById('menuProfessores').classList.add('bg-indigo-600', 'text-white');
+            } else if (aba === 'colaboradores') {
+                document.getElementById('secaoColaboradores').classList.remove('hidden');
+                document.getElementById('tituloSecao').innerText = "Gerenciamento de Colaboradores";
+                document.getElementById('menuColaboradores').classList.add('bg-indigo-600', 'text-white');
+            }
+        }
+
+        function abrirModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+        function fecharModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+
+        function abrirEdicaoAluno(botao) {
+            const aluno = JSON.parse(botao.getAttribute('data-objeto'));
+            const idAluno = aluno.id || aluno.matricula;
+            document.getElementById('formEditarAluno').action = `/atualizar/aluno/${idAluno}`;
+            
+            document.getElementById('editAlunoNome').value = aluno.nome || '';
+            document.getElementById('editAlunoNasc').value = aluno.data_nascimento || '';
+            document.getElementById('editAlunoCpf').value = aluno.cpf || '';
+            document.getElementById('editAlunoSerie').value = aluno.serie || '';
+            document.getElementById('editAlunoTurma').value = aluno.turma || '';
+            document.getElementById('editAlunoEmail').value = aluno.email || '';
+            document.getElementById('editRespNome').value = aluno.responsavel_nome || aluno.responsavel || '';
+            document.getElementById('editRespCpf').value = aluno.responsavel_cpf || '';
+            document.getElementById('editRespTel').value = aluno.responsavel_telefone || '';
+            abrirModal('modalEditarAluno');
+        }
+
+        function abrirEdicaoProfessor(botao) {
+            const prof = JSON.parse(botao.getAttribute('data-objeto'));
+            document.getElementById('formEditarProfessor').action = `/atualizar/professor/${prof.id}`;
+            document.getElementById('editProfNome').value = prof.nome || '';
+            document.getElementById('editProfCpf').value = prof.cpf || '';
+            document.getElementById('editProfEmail').value = prof.email || '';
+            document.getElementById('editProfEsp').value = prof.especialidade || '';
+            document.getElementById('editProfDisc').value = prof.disciplinas || '';
+            document.getElementById('editProfSalario').value = prof.salario || '';
+            document.getElementById('editProfEnd').value = prof.endereco || '';
+            abrirModal('modalEditarProfessor');
+        }
+
+        function abrirEdicaoColaborador(botao) {
+            const colab = JSON.parse(botao.getAttribute('data-objeto'));
+            document.getElementById('formEditarColaborador').action = `/atualizar/colaborador/${colab.id}`;
+            document.getElementById('editColabNome').value = colab.nome || '';
+            document.getElementById('editColabCpf').value = colab.cpf || '';
+            document.getElementById('editColabFuncao').value = colab.funcao || '';
+            document.getElementById('editColabEmail').value = colab.email || '';
+            document.getElementById('editColabEnd').value = colab.endereco || '';
+            abrirModal('modalEditarColaborador');
+        }
+
+        function validarCpf(cpf) {
+            cpf = cpf.replace(/[^\d]+/g,'');
+            if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+            let soma = 0, resto;
+            for (let i=1; i<=9; i++) soma += parseInt(cpf.substring(i-1, i)) * (11 - i);
+            resto = (soma * 10) % 11;
+            if ((resto === 10) || (resto === 11)) resto = 0;
+            if (resto !== parseInt(cpf.substring(9, 10))) return false;
+            soma = 0;
+            for (let i = 1; i <= 10; i++) soma += parseInt(cpf.substring(i-1, i)) * (12 - i);
+            resto = (soma * 10) % 11;
+            if ((resto === 10) || (resto === 11)) resto = 0;
+            if (resto !== parseInt(cpf.substring(10, 11))) return false;
+            return true;
+        }
+
+        function validarFormularioCpfEmail(form) {
+            const cpfInput = form.querySelector('input[name="cpf"]');
+            if (cpfInput && cpfInput.value.trim() !== "") {
+                if (!validarCpf(cpfInput.value)) {
+                    alert("CPF inválido! Por favor, verifique os números digitados.");
+                    cpfInput.focus();
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function filtrarTabela(input, idTabela) {
+            const termo = input.value.toLowerCase();
+            const linhas = document.querySelectorAll(`#${idTabela} tbody tr`);
+            linhas.forEach(linha => {
+                const texto = linha.innerText.toLowerCase();
+                linha.style.display = texto.includes(termo) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>
