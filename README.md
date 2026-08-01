@@ -69,8 +69,8 @@ python run_app.py
 1. Abra o navegador e acesse: `http://127.0.0.1:5000`
 
 2. **Login padrão**:
-   - Email: `admin@escola.com`
-   - Senha: `admin123`
+   - Email: `admin`
+   - Senha: '1234`
 
 3. **No Dashboard**:
    - Use o menu lateral para navegar entre as seções
@@ -82,16 +82,13 @@ python run_app.py
 ```
 escola_project/
 ├── gerenciador_escola.py      # Classe principal do banco de dados
-├── app_escola.py               # Aplicativo Flask com rotas API
-├── run_app.py                  # Script para iniciar a aplicação
+├── app.py               # Aplicativo Flask com rotas API
 ├── requirements.txt            # Dependências Python
 ├── templates/
 │   ├── login.html             # Página de login
-│   └── index_escola.html      # Dashboard principal
-├── static/
-│   ├── style_escola.css       # Estilos CSS
-│   └── script_escola.js       # Lógica JavaScript
-└── escola.db                   # Banco de dados SQLite (criado automaticamente)
+│   └── index.html      # Dashboard principal
+|                               # Lógica JavaScript
+└── escola.db                  # Banco de dados SQLite (criado automaticamente)
 ```
 
 ## 🔐 Segurança
