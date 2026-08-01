@@ -142,7 +142,7 @@ class GerenciadorEscola:
                 WHERE id = ?
             ''', (
                 dados.get('nome'), dados.get('data_nascimento'), dados.get('cpf'), dados.get('serie'), dados.get('turma'),
-        dados.get('email'), dados.get('responsavel_nome'), dados.get('responsavel_cpf'), dados.get('responsavel_telefone'), id_aluno
+        dados.get('email'), dados.get('responsavel_nome'), dados.get('responsavel_cpf'), dados.get('responsavel_telefone') id_aluno
             ))
             conn.commit()
     
