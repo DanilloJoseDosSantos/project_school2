@@ -134,7 +134,7 @@ class GerenciadorEscola:
             conn.commit()
 
     def atualizar_aluno(self, id_aluno, dados):
-        if self.cpf_existe('alunos', dados.get('cpf'), id_aluno):
+        if self.cpf_existe('alunos', dados.get('cpf'), aluno):
             raise ValueError("Este CPF já pertence a outro aluno.")
         with self.conectar() as conn:
             conn.execute('''
