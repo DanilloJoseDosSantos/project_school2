@@ -67,15 +67,15 @@ def salvar_aluno():
             usuario_nome=session.get('usuario_nome')
         )
     return redirect(url_for('dashboard'))
-
 @app.route('/atualizar/aluno/<int:id>', methods=['POST'])
 def atualizar_aluno(id):
     if not usuario_logado(): return redirect(url_for('login'))
     try:
         db.atualizar_aluno(id, request.form)
-     except ValueError:
+    except ValueError:
         pass
-    return redirect(url_for('dashboard'))
+    # Redireciona mantendo a âncora da seção de alunos no dashboard
+    return redirect(url_for('dashboard') + '#alunos')
 
 @app.route('/salvar/professor', methods=['POST'])
 def salvar_professor():
@@ -93,7 +93,8 @@ def atualizar_professor(id):
         db.atualizar_professor(id, request.form)
     except ValueError:
         pass
-    return redirect(url_for('dashboard'))
+    # Redireciona mantendo a âncora da seção de professores
+    return redirect(url_for('dashboard') + '#professores')
 
 @app.route('/salvar/colaborador', methods=['POST'])
 def salvar_colaborador():
@@ -111,7 +112,8 @@ def atualizar_colaborador(id):
         db.atualizar_colaborador(id, request.form)
     except ValueError:
         pass
-    return redirect(url_for('dashboard'))
+    # Redireciona mantendo a âncora da seção de colaboradores
+    return redirect(url_for('dashboard') + '#colaboradores')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

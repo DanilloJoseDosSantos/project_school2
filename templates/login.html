@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR" class="h-full bg-slate-900">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Sistema Escolar</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="h-full flex items-center justify-center font-sans antialiased">
     <div class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-700">
         <div class="text-center mb-8">
@@ -15,7 +17,8 @@
         </div>
 
         {% if erro %}
-        <div class="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl text-center font-semibold">
+        <div
+            class="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl text-center font-semibold">
             {{ erro }}
         </div>
         {% endif %}
@@ -23,36 +26,72 @@
         <form action="/login" method="POST" class="space-y-4">
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-300">Usuário</label>
-                <input type="text" name="usuario" required 
-                       placeholder="Clique aqui e digite seu usuário..." 
-                       onfocus="this.placeholder=''" 
-                       onblur="this.placeholder='Clique aqui e digite seu usuário...'"
-                       class="w-full px-4 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <input type="text" name="usuario" required placeholder="Clique aqui e digite seu usuário..."
+                    onfocus="this.placeholder=''" onblur="this.placeholder='Clique aqui e digite seu usuário...'"
+                    class="w-full px-4 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
             </div>
-            
+
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-300">Senha</label>
                 <div class="relative">
-                    <input type="password" id="campoSenha" name="senha" required 
-                           placeholder="Clique aqui e digite sua senha..." 
-                           onfocus="this.placeholder=''" 
-                           onblur="this.placeholder='Clique aqui e digite sua senha...'"
-                           class="w-full px-4 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-10">
-                    <button type="button" onclick="alternarVisibilidadeSenha()" class="absolute right-3 top-2.5 text-slate-400 hover:text-white text-xs font-bold">
+                    <input type="password" id="campoSenha" name="senha" required
+                        placeholder="Clique aqui e digite sua senha..." onfocus="this.placeholder=''"
+                        onblur="this.placeholder='Clique aqui e digite sua senha...'"
+                        class="w-full px-4 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-10">
+                    <button type="button" onclick="alternarVisibilidadeSenha()"
+                        class="absolute right-3 top-2.5 text-slate-400 hover:text-white text-xs font-bold">
                         👁️
                     </button>
                 </div>
             </div>
 
-            <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-lg transition">Entrar no Sistema</button>
+            <button type="submit"
+                class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-lg transition">Entrar
+                no Sistema</button>
         </form>
     </div>
 
     <script>
         function alternarVisibilidadeSenha() {
             const input = document.getElementById('campoSenha');
-            input.type = input.type === 'password' ? 'text' : 'password';
+            if (input) {
+                input.type = input.type === 'password' ? 'text' : 'password';
+            }
         }
+
+        function mudarAba(aba) {
+            document.querySelectorAll('.secao-conteudo').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('aside nav button').forEach(el => el.classList.remove('bg-indigo-600', 'text-white'));
+
+            if (aba === 'dashboard') {
+                document.getElementById('secaoAlunos').classList.remove('hidden');
+                document.getElementById('secaoProfessores').classList.remove('hidden');
+                document.getElementById('secaoColaboradores').classList.remove('hidden');
+                document.getElementById('tituloSecao').innerText = "Dashboard Geral";
+                document.getElementById('menuDashboard').classList.add('bg-indigo-600', 'text-white');
+            } else if (aba === 'alunos') {
+                document.getElementById('secaoAlunos').classList.remove('hidden');
+                document.getElementById('tituloSecao').innerText = "Gerenciamento de Alunos";
+                document.getElementById('menuAlunos').classList.add('bg-indigo-600', 'text-white');
+            } else if (aba === 'professores') {
+                document.getElementById('secaoProfessores').classList.remove('hidden');
+                document.getElementById('tituloSecao').innerText = "Gerenciamento de Professores";
+                document.getElementById('menuProfessores').classList.add('bg-indigo-600', 'text-white');
+            } else if (aba === 'colaboradores') {
+                document.getElementById('secaoColaboradores').classList.remove('hidden');
+                document.getElementById('tituloSecao').innerText = "Gerenciamento de Colaboradores";
+                document.getElementById('menuColaboradores').classList.add('bg-indigo-600', 'text-white');
+            }
+        }
+
+        // Detecta a âncora na URL ao carregar a página e abre a aba correspondente
+        window.addEventListener('DOMContentLoaded', () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash === 'alunos' || hash === 'professores' || hash === 'colaboradores') {
+                mudarAba(hash);
+            }
+        });
     </script>
 </body>
+
 </html>

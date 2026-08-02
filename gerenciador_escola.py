@@ -134,45 +134,65 @@ class GerenciadorEscola:
             conn.commit()
 
     def atualizar_aluno(self, id_aluno, dados):
-        if self.cpf_existe('alunos', dados.get('cpf'), aluno):
+        # Valida se o CPF já pertence a outro aluno
+        if self.cpf_existe('alunos', dados.get('cpf'), id_aluno):
             raise ValueError("Este CPF já pertence a outro aluno.")
+            
         with self.conectar() as conn:
-            conn.execute('''
-                UPDATE alunos SET nome = ?, cpf = ?, data_nascimento = ?, cpf = ?, serie = ?, turma = ?, email = ?, responsavel_nome = ?, responsavel_cpf = ?, responsavel_telefone = ?
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE alunos 
+                SET nome = ?, cpf = ?, data_nascimento = ?, serie = ?, turma = ?, email = ?, responsavel = ?, responsavel_cpf = ?, responsavel_telefone = ?
                 WHERE id = ?
             ''', (
-                dados.get('nome'), dados.get('data_nascimento'), dados.get('cpf'), dados.get('serie'), dados.get('turma'),
-        dados.get('email'), dados.get('responsavel_nome'), dados.get('responsavel_cpf'), dados.get('responsavel_telefone') id_aluno
+                dados.get('nome'), 
+                dados.get('cpf'), 
+                dados.get('data_nascimento'), 
+                dados.get('serie'), 
+                dados.get('turma'), 
+                dados.get('email'), 
+                dados.get('responsavel_nome'),      # Ajustado para bater com name="responsavel_nome" do HTML
+                dados.get('responsavel_cpf'),       # Ajustado para bater com name="responsavel_cpf" do HTML
+                dados.get('responsavel_telefone'),  # Ajustado para bater com name="responsavel_telefone" do HTML
+                id_aluno
             ))
             conn.commit()
-    
 
     def inserir_professor(self, dados):
         if self.cpf_existe('professores', dados.get('cpf')):
-            raise ValueError("Este CPF já está cadastrado para outro professor.")
-        with self.conectar() as conn:
-            conn.execute('''
-                INSERT INTO professores (nome, cpf, email, telefone, especialidade, disciplinas, data_nascimento, genero, data_admissao, salario, endereco, cidade, estado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                dados.get('nome'), dados.get('cpf'), dados.get('email'), dados.get('telefone'),
-                dados.get('especialidade'), dados.get('disciplinas'), dados.get('data_nascimento'),
-                dados.get('genero'), dados.get('data_admissao'), dados.get('salario', 0.0),
-                dados.get('endereco'), dados.get('cidade'), dados.get('estado')
-            ))
-            conn.commit()
-
-    def atualizar_professor(self, id_prof, dados):
-        if self.cpf_existe('professores', dados.get('cpf'), id_prof):
             raise ValueError("Este CPF já pertence a outro professor.")
         with self.conectar() as conn:
             conn.execute('''
-                UPDATE professores SET nome = ?, cpf = ?, email = ?, telefone = ?, especialidade = ?, disciplinas = ?, salario = ?, endereco = ?
+                INSERT INTO professores (nome, cpf, email, especialidade, disciplinas, salario, endereco)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                dados.get('nome'), 
+                dados.get('cpf'), 
+                dados.get('email'), 
+                dados.get('especialidade'), 
+                dados.get('disciplinas'), 
+                dados.get('salario'), 
+                dados.get('endereco')
+            ))
+            conn.commit()
+
+    def atualizar_professor(self, id_professor, dados):
+        if self.cpf_existe('professores', dados.get('cpf'), id_professor):
+            raise ValueError("Este CPF já pertence a outro professor.")
+        with self.conectar() as conn:
+            conn.execute('''
+                UPDATE professores 
+                SET nome = ?, cpf = ?, email = ?, especialidade = ?, disciplinas = ?, salario = ?, endereco = ?
                 WHERE id = ?
             ''', (
-                dados.get('nome'), dados.get('cpf'), dados.get('email'), dados.get('telefone'),
-                dados.get('especialidade'), dados.get('disciplinas'), dados.get('salario', 0.0),
-                dados.get('endereco'), id_prof
+                dados.get('nome'), 
+                dados.get('cpf'), 
+                dados.get('email'), 
+                dados.get('especialidade'), 
+                dados.get('disciplinas'), 
+                dados.get('salario'), 
+                dados.get('endereco'),
+                id_professor
             ))
             conn.commit()
 
