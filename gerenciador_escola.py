@@ -1,18 +1,87 @@
 import sqlite3
 import re
+import os
 from datetime import datetime
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except Exception:
+    psycopg = None
+    dict_row = None
+
+
+class _CursorAdapter:
+    def __init__(self, cursor, using_postgres=False):
+        self._cursor = cursor
+        self._using_postgres = using_postgres
+
+    def execute(self, query, params=()):
+        if self._using_postgres:
+            query = query.replace('?', '%s')
+        return self._cursor.execute(query, params)
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+class _ConnectionAdapter:
+    def __init__(self, conn, using_postgres=False):
+        self._conn = conn
+        self._using_postgres = using_postgres
+
+    def execute(self, query, params=()):
+        if self._using_postgres:
+            query = query.replace('?', '%s')
+        return self._conn.execute(query, params)
+
+    def cursor(self):
+        return _CursorAdapter(self._conn.cursor(), using_postgres=self._using_postgres)
+
+    def __enter__(self):
+        self._conn.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return self._conn.__exit__(exc_type, exc, tb)
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
 
 class GerenciadorEscola:
     def __init__(self, db_name="escola.db"):
         self.db_name = db_name
+        self.database_url = (os.getenv('DATABASE_URL') or '').strip()
+        self.using_postgres = self.database_url.startswith('postgres://') or self.database_url.startswith('postgresql://')
+        if self.using_postgres and self.database_url.startswith('postgres://'):
+            self.database_url = self.database_url.replace('postgres://', 'postgresql://', 1)
+        if self.using_postgres and psycopg is None:
+            raise RuntimeError('DATABASE_URL configurada para PostgreSQL, mas psycopg não está instalado.')
         self.criar_tabelas()
 
     def conectar(self):
+        if self.using_postgres:
+            conn = psycopg.connect(self.database_url, row_factory=dict_row)
+            return _ConnectionAdapter(conn, using_postgres=True)
         conn = sqlite3.connect(self.db_name)
         conn.row_factory = sqlite3.Row
-        return conn
+        return _ConnectionAdapter(conn, using_postgres=False)
+
+    @staticmethod
+    def _primeiro_valor(row, padrao=0):
+        if row is None:
+            return padrao
+        if isinstance(row, dict):
+            for valor in row.values():
+                return valor
+            return padrao
+        return row[0]
 
     def criar_tabelas(self):
+        if self.using_postgres:
+            self._criar_tabelas_postgres()
+            return
+
         with self.conectar() as conn:
             # Tabela de Alunos
             conn.execute('''
@@ -132,23 +201,144 @@ class GerenciadorEscola:
             self._garantir_configuracao_padrao(conn)
             conn.commit()
 
+    def _criar_tabelas_postgres(self):
+        with self.conectar() as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS alunos (
+                    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    nome TEXT NOT NULL,
+                    matricula TEXT UNIQUE NOT NULL,
+                    email TEXT,
+                    serie TEXT NOT NULL,
+                    turma TEXT NOT NULL,
+                    data_nascimento TEXT,
+                    cpf TEXT UNIQUE,
+                    responsavel TEXT,
+                    responsavel_cpf TEXT,
+                    responsavel_telefone TEXT,
+                    foto_referencia TEXT,
+                    status TEXT DEFAULT 'arquivado',
+                    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS professores (
+                    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    nome TEXT NOT NULL,
+                    cpf TEXT UNIQUE NOT NULL,
+                    email TEXT NOT NULL,
+                    senha TEXT,
+                    telefone TEXT,
+                    especialidade TEXT NOT NULL,
+                    disciplinas TEXT,
+                    data_nascimento TEXT,
+                    genero TEXT,
+                    data_admissao TEXT,
+                    salario REAL,
+                    endereco TEXT,
+                    cidade TEXT,
+                    estado TEXT,
+                    status TEXT DEFAULT 'ativo',
+                    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS colaboradores (
+                    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    nome TEXT NOT NULL,
+                    cpf TEXT UNIQUE NOT NULL,
+                    email TEXT NOT NULL,
+                    senha TEXT,
+                    funcao TEXT NOT NULL,
+                    endereco TEXT NOT NULL,
+                    status TEXT DEFAULT 'ativo',
+                    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS diario_entradas (
+                    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    aluno_id INTEGER NOT NULL,
+                    professor_id INTEGER NOT NULL,
+                    materia TEXT NOT NULL,
+                    data_aula TEXT NOT NULL,
+                    trimestre INTEGER NOT NULL,
+                    presente INTEGER NOT NULL,
+                    nota REAL,
+                    observacao TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (aluno_id) REFERENCES alunos(id),
+                    FOREIGN KEY (professor_id) REFERENCES professores(id)
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS auditoria (
+                    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    acao TEXT NOT NULL,
+                    entidade TEXT NOT NULL,
+                    entidade_id INTEGER,
+                    usuario TEXT NOT NULL,
+                    detalhes TEXT,
+                    data_evento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS configuracoes (
+                    chave TEXT PRIMARY KEY,
+                    valor TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS reconhecimento_eventos (
+                    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    professor_id INTEGER NOT NULL,
+                    aluno_id INTEGER NOT NULL,
+                    materia TEXT NOT NULL,
+                    data_aula TEXT NOT NULL,
+                    total_capturas INTEGER NOT NULL,
+                    total_matches INTEGER NOT NULL,
+                    score_medio REAL NOT NULL,
+                    limiar_utilizado REAL NOT NULL,
+                    sugestao_presenca INTEGER NOT NULL,
+                    validado_presenca INTEGER,
+                    acertou INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (professor_id) REFERENCES professores(id),
+                    FOREIGN KEY (aluno_id) REFERENCES alunos(id)
+                )
+            ''')
+            self._garantir_configuracao_padrao(conn)
+            conn.commit()
+
     def _garantir_colaborador_senha_coluna(self, conn):
+        if self.using_postgres:
+            return
         cursor = conn.execute("PRAGMA table_info(colaboradores)")
         colunas = [row['name'] for row in cursor.fetchall()]
         if 'senha' not in colunas:
             conn.execute('ALTER TABLE colaboradores ADD COLUMN senha TEXT')
 
     def _garantir_aluno_foto_referencia_coluna(self, conn):
+        if self.using_postgres:
+            return
         cursor = conn.execute("PRAGMA table_info(alunos)")
         colunas = [row['name'] for row in cursor.fetchall()]
         if 'foto_referencia' not in colunas:
             conn.execute('ALTER TABLE alunos ADD COLUMN foto_referencia TEXT')
 
     def _garantir_configuracao_padrao(self, conn):
-        conn.execute('''
-            INSERT OR IGNORE INTO configuracoes (chave, valor)
-            VALUES ('limiar_reconhecimento', '0.20')
-        ''')
+        if self.using_postgres:
+            conn.execute('''
+                INSERT INTO configuracoes (chave, valor)
+                VALUES ('limiar_reconhecimento', '0.20')
+                ON CONFLICT (chave) DO NOTHING
+            ''')
+        else:
+            conn.execute('''
+                INSERT OR IGNORE INTO configuracoes (chave, valor)
+                VALUES ('limiar_reconhecimento', '0.20')
+            ''')
 
     @staticmethod
     def validar_cpf(cpf):
@@ -186,7 +376,7 @@ class GerenciadorEscola:
                 cursor = conn.execute("SELECT COUNT(*) FROM alunos WHERE status = 'arquivado'")
             else:
                 cursor = conn.execute(f"SELECT COUNT(*) FROM {tabela} WHERE status = 'ativo'")
-            return cursor.fetchone()[0]
+            return self._primeiro_valor(cursor.fetchone(), 0)
 
     def buscar_registros(self, tabela, termo=""):
         with self.conectar() as conn:

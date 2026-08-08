@@ -1,5 +1,7 @@
 import base64
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 import cv2
 import numpy as np
@@ -19,6 +21,16 @@ def _decode_data_url_image(data_url):
 
 
 def _load_image(path):
+    parsed = urlparse(str(path))
+    if parsed.scheme in ('http', 'https'):
+        with urlopen(str(path), timeout=10) as resp:
+            raw = resp.read()
+        nparr = np.frombuffer(raw, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if frame is None:
+            raise ValueError('Foto de referência remota inválida.')
+        return frame
+
     image_path = Path(path)
     if not image_path.exists():
         raise FileNotFoundError('Foto de referência não encontrada.')

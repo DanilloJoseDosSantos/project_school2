@@ -145,6 +145,27 @@ Para problemas ou dúvidas:
 
 Projeto criado para fins educacionais.
 
+## 🌐 Deploy em produção (Vercel + banco externo)
+
+Para demonstração real sem perda de dados:
+
+1. Use banco PostgreSQL gerenciado (Supabase/Neon/Railway) e configure `DATABASE_URL`.
+2. Use storage externo para fotos (`STORAGE_MODE=cloudinary`) e configure credenciais Cloudinary.
+3. Defina variáveis seguras em produção:
+   - `FLASK_SECRET_KEY`
+   - `ADMIN_USER`
+   - `ADMIN_PASSWORD`
+   - `DATABASE_URL`
+   - `STORAGE_MODE=cloudinary`
+   - `CLOUDINARY_CLOUD_NAME`
+   - `CLOUDINARY_API_KEY`
+   - `CLOUDINARY_API_SECRET`
+   - `ENABLE_FACE_RECOGNITION=0` (recomendado no Vercel gratuito)
+4. No Vercel, importe o repositório e mantenha o arquivo `vercel.json` do projeto.
+5. Após publicar, valide a rota de saúde: `/health`.
+
+Observação importante: usar SQLite local em ambiente serverless causa perda de dados entre execuções.
+
 ## ✅ Changelog
 
 ### v1.0.0

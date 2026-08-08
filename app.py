@@ -1,22 +1,55 @@
 from datetime import datetime
+import os
+import importlib
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.utils import secure_filename
 from gerenciador_escola import GerenciadorEscola
 
 try:
+    cloudinary = importlib.import_module('cloudinary')
+    importlib.import_module('cloudinary.uploader')
+    CLOUDINARY_DISPONIVEL = True
+except Exception:
+    cloudinary = None
+    CLOUDINARY_DISPONIVEL = False
+
+try:
     from reconhecimento_facial import comparar_rosto_por_orb
-    RECONHECIMENTO_DISPONIVEL = True
+    _RECONHECIMENTO_IMPORT_OK = True
 except Exception:
     comparar_rosto_por_orb = None
-    RECONHECIMENTO_DISPONIVEL = False
-
+    _RECONHECIMENTO_IMPORT_OK = False
+ 
 app = Flask(__name__)
-app.secret_key = "chave_secreta_sistema_escolar"
+
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'trocar-esta-chave-em-producao')
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=bool(os.getenv('VERCEL')) or os.getenv('FLASK_ENV') == 'production'
+)
 db = GerenciadorEscola()
-ADMIN_USER = 'admin'
-ADMIN_PASSWORD = '1234'
-PASTA_FOTOS_REFERENCIA = Path('static') / 'fotos_referencia'
+ADMIN_USER = os.getenv('ADMIN_USER', 'admin')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', '1234')
+STORAGE_MODE = os.getenv('STORAGE_MODE', 'local').lower()
+USANDO_VERCEL = bool(os.getenv('VERCEL'))
+UPLOAD_DIR_PADRAO = '/tmp/fotos_referencia' if USANDO_VERCEL else str(Path('static') / 'fotos_referencia')
+PASTA_FOTOS_REFERENCIA = Path(os.getenv('LOCAL_UPLOAD_DIR', UPLOAD_DIR_PADRAO))
+CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
+CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY')
+CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET')
+
+if CLOUDINARY_DISPONIVEL and CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True
+    )
+
+RECONHECIMENTO_HABILITADO = os.getenv('ENABLE_FACE_RECOGNITION', '0' if USANDO_VERCEL else '1') == '1'
+RECONHECIMENTO_DISPONIVEL = _RECONHECIMENTO_IMPORT_OK and RECONHECIMENTO_HABILITADO
 PASTA_FOTOS_REFERENCIA.mkdir(parents=True, exist_ok=True)
 
 def usuario_logado():
@@ -44,9 +77,25 @@ def salvar_foto_referencia_aluno(arquivo, aluno_id):
     if extensao not in ['.jpg', '.jpeg', '.png', '.webp']:
         raise ValueError('Formato de foto inválido. Use JPG, PNG ou WEBP.')
 
+    usar_cloudinary = STORAGE_MODE == 'cloudinary' and CLOUDINARY_DISPONIVEL and CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET
+    if usar_cloudinary:
+        upload_result = cloudinary.uploader.upload(
+            arquivo,
+            folder='escola/fotos_referencia',
+            public_id=f'aluno_{aluno_id}',
+            overwrite=True,
+            resource_type='image'
+        )
+        return upload_result.get('secure_url')
+
     destino = PASTA_FOTOS_REFERENCIA / f"aluno_{aluno_id}{extensao}"
     arquivo.save(destino)
     return str(destino).replace('\\', '/')
+
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'}), 200
 
 @app.route('/')
 def raiz():
@@ -636,4 +685,4 @@ def relatorio(tipo):
     return render_template('relatorio.html', tipo=tipo, registros=registros, gerado_em=datetime.now())
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=os.getenv('FLASK_DEBUG', '0') == '1', port=int(os.getenv('PORT', '5000')))
