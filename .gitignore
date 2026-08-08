@@ -10,7 +10,6 @@ __pycache__/
 env/
 venv/
 venv.bak/
-.python-version
 
 # SQLite database
 escola.db
