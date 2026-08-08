@@ -25,6 +25,15 @@
 
         <form action="/login" method="POST" class="space-y-4">
             <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-300">Entrar como</label>
+                <select name="papel" required
+                    class="w-full px-4 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="admin">Administrador</option>
+                    <option value="docente">Docente</option>
+                </select>
+            </div>
+
+            <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-300">Usuário</label>
                 <input type="text" name="usuario" required placeholder="Clique aqui e digite seu usuário..."
                     onfocus="this.placeholder=''" onblur="this.placeholder='Clique aqui e digite seu usuário...'"

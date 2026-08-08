@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório - {{ tipo|capitalize }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .nao-imprimir {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 text-slate-900 font-sans">
+    <div class="max-w-6xl mx-auto p-6 space-y-4">
+        <div class="flex items-center justify-between nao-imprimir">
+            <a href="/dashboard" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm">Voltar</a>
+            <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm">Imprimir</button>
+        </div>
+
+        <header class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h1 class="text-2xl font-bold">Relatório de {{ tipo|capitalize }}</h1>
+            <p class="text-sm text-slate-600 mt-1">Gerado em: {{ gerado_em.strftime('%d/%m/%Y %H:%M:%S') }}</p>
+            <p class="text-xs text-slate-500 mt-2">Este relatório existe para trilha de auditoria e conferência futura.</p>
+        </header>
+
+        <section class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-x-auto">
+            {% if tipo == 'auditoria' %}
+            <table class="min-w-full text-left text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                        <th class="p-3">Data</th>
+                        <th class="p-3">Ação</th>
+                        <th class="p-3">Entidade</th>
+                        <th class="p-3">ID</th>
+                        <th class="p-3">Usuário</th>
+                        <th class="p-3">Detalhes</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for r in registros %}
+                    <tr>
+                        <td class="p-3">{{ r.data_evento }}</td>
+                        <td class="p-3 font-semibold">{{ r.acao }}</td>
+                        <td class="p-3">{{ r.entidade }}</td>
+                        <td class="p-3">{{ r.entidade_id or '-' }}</td>
+                        <td class="p-3">{{ r.usuario }}</td>
+                        <td class="p-3">{{ r.detalhes or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum evento de auditoria encontrado.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% elif tipo == 'reconhecimento' %}
+            <table class="min-w-full text-left text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                        <th class="p-3">Data da Aula</th>
+                        <th class="p-3">Matéria</th>
+                        <th class="p-3">Professor</th>
+                        <th class="p-3">Tentativas</th>
+                        <th class="p-3">Validadas</th>
+                        <th class="p-3">Acertos</th>
+                        <th class="p-3">Taxa de Acerto</th>
+                        <th class="p-3">Score Médio</th>
+                        <th class="p-3">Média Capturas</th>
+                        <th class="p-3">Limiar Médio</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for r in registros %}
+                    <tr>
+                        <td class="p-3">{{ r.data_aula }}</td>
+                        <td class="p-3">{{ r.materia }}</td>
+                        <td class="p-3">{{ r.professor_nome }}</td>
+                        <td class="p-3">{{ r.total_tentativas }}</td>
+                        <td class="p-3">{{ r.total_validadas }}</td>
+                        <td class="p-3">{{ r.total_acertos }}</td>
+                        <td class="p-3 font-semibold">{{ r.taxa_acerto_percentual }}%</td>
+                        <td class="p-3">{{ r.score_medio_geral }}</td>
+                        <td class="p-3">{{ r.media_capturas }}</td>
+                        <td class="p-3">{{ r.limiar_medio }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="10" class="p-6 text-center text-slate-400">Nenhum dado de reconhecimento encontrado.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <table class="min-w-full text-left text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                        <th class="p-3">ID</th>
+                        <th class="p-3">Nome</th>
+                        <th class="p-3">CPF</th>
+                        <th class="p-3">Email</th>
+                        <th class="p-3">Status</th>
+                        <th class="p-3">Cadastro</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for r in registros %}
+                    <tr>
+                        <td class="p-3">{{ r.id }}</td>
+                        <td class="p-3 font-semibold">{{ r.nome or '-' }}</td>
+                        <td class="p-3">{{ r.cpf or '-' }}</td>
+                        <td class="p-3">{{ r.email or '-' }}</td>
+                        <td class="p-3">{{ r.status or '-' }}</td>
+                        <td class="p-3">{{ r.data_cadastro or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </section>
+    </div>
+</body>
+
+</html>

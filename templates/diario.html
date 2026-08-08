@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-100">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diário de Classe - {{ professor_nome }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-slate-100 font-sans text-slate-900">
+    <div class="max-w-7xl mx-auto p-4">
+        <header class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+                <p class="text-sm text-slate-500">Professor:</p>
+                <h1 class="text-3xl font-bold">Diário de Classe</h1>
+                <p class="text-sm text-slate-600">{{ professor_nome }} • Matéria: {{ materia_atual }} • Trimestre {{ trimestre }}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% if modo_visualizacao and professores %}
+                <select onchange="if(this.value){ window.location.href = this.value; }" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                    {% for prof in professores %}
+                    <option value="{{ url_for('diario_visualizacao', professor_id=prof.id, materia=materia_atual, data=hoje, serie=serie_atual, turma=turma_atual) }}" {% if prof.id == professor_id_atual %}selected{% endif %}>{{ prof.nome }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+                {% for disciplina in disciplinas %}
+                <a href="{% if modo_visualizacao %}{{ url_for('diario_visualizacao', professor_id=professor_id_atual, materia=disciplina, data=hoje, serie=serie_atual, turma=turma_atual) }}{% else %}{{ url_for('diario', materia=disciplina, data=hoje, serie=serie_atual, turma=turma_atual) }}{% endif %}"
+                    class="rounded-full px-4 py-2 text-xs font-semibold {% if disciplina == materia_atual %}bg-indigo-600 text-white{% else %}bg-slate-200 text-slate-700 hover:bg-slate-300{% endif %}">{{ disciplina }}</a>
+                {% endfor %}
+                {% if modo_visualizacao %}
+                <a href="{{ url_for('dashboard') }}" class="rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Voltar</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}" class="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600">Sair</a>
+            </div>
+        </header>
+
+        {% if modo_visualizacao %}
+        <div class="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800">
+            Modo de visualização ativo: somente professores podem editar notas e faltas. Este acesso permite apenas consulta pelo administrador.
+        </div>
+        {% endif %}
+
+        {% if mensagem and mensagem.texto %}
+        <div class="mb-4 rounded-2xl border p-4 text-sm {% if mensagem.tipo == 'sucesso' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-800{% endif %}">
+            {{ mensagem.texto }}
+        </div>
+        {% endif %}
+
+        <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            Reconhecimento facial para presença: possível integrar via OpenCV/Face Recognition com câmeras de sala, mas recomenda-se consentimento, política LGPD e confirmação manual final do professor antes da gravação.
+        </div>
+
+        {% if not modo_visualizacao %}
+        <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 class="text-sm font-bold text-slate-800">Piloto: reconhecimento facial com validação do professor</h2>
+            <p class="mt-1 text-xs text-slate-500">A presença será apenas sugerida pelo sistema. A confirmação final permanece com o professor.</p>
+            <p class="mt-1 text-xs text-slate-500">Limiar atual da escola: <span class="font-bold">{{ '%.2f'|format(limiar_reconhecimento) }}</span></p>
+
+            {% if reconhecimento_disponivel %}
+            <div class="mt-4 grid gap-4 lg:grid-cols-3">
+                <div class="lg:col-span-2">
+                    <video id="cameraVideo" autoplay playsinline class="w-full rounded-xl border border-slate-200 bg-slate-900"></video>
+                    <canvas id="cameraCanvas" class="hidden"></canvas>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <button type="button" id="btnIniciarCamera" class="rounded-xl bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700">Iniciar Câmera</button>
+                        <button type="button" id="btnCapturarReconhecimento" class="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">Capturar e Sugerir Presença</button>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <label class="text-xs font-semibold uppercase text-slate-500">Aluno para validação</label>
+                    <select id="alunoReconhecimento" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                        {% for aluno in alunos %}
+                        <option value="{{ aluno.id }}">{{ aluno.nome }} ({{ aluno.matricula }})</option>
+                        {% endfor %}
+                    </select>
+                    <div>
+                        <label class="text-xs font-semibold uppercase text-slate-500">Capturas por validação</label>
+                        <input id="qtdCapturas" type="number" min="1" max="10" value="3" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    </div>
+                    <div id="resultadoReconhecimento" class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                        Aguardando captura...
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                Reconhecimento facial indisponível no servidor. Instale as dependências de visão computacional para ativar o piloto.
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        <form id="formDiario" action="{{ url_for('salvar_diario') }}" method="POST" class="space-y-6" onsubmit="return validarEnvioDiario()">
+            <div class="grid gap-4 md:grid-cols-3">
+                <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+                    <label class="text-xs font-semibold uppercase text-slate-500">Matéria</label>
+                    <input type="text" name="materia" value="{{ materia_atual }}" readonly
+                        class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                </div>
+                <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+                    <label class="text-xs font-semibold uppercase text-slate-500">Trimestre</label>
+                    <input type="text" name="trimestre" value="{{ trimestre }}" readonly
+                        class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                </div>
+                <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+                    <label class="text-xs font-semibold uppercase text-slate-500">Data da Aula</label>
+                    <input type="date" name="data_aula" value="{{ hoje }}"
+                        {% if modo_visualizacao %}disabled{% endif %}
+                        onchange="atualizarContextoDiario()"
+                        class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                </div>
+            </div>
+
+            <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+                <label class="text-xs font-semibold uppercase text-slate-500">Lista de Presença por Colegas (Série e Turma)</label>
+                <div class="mt-2 grid gap-2 md:grid-cols-2">
+                    <select id="filtroSerie" name="serie" {% if modo_visualizacao %}disabled{% endif %} onchange="atualizarContextoDiario()"
+                        class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                        <option value="" {% if not serie_atual %}selected{% endif %}>Todas as séries</option>
+                        {% for serie in series_disponiveis %}
+                        <option value="{{ serie }}" {% if serie == serie_atual %}selected{% endif %}>{{ serie }}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="filtroTurma" name="turma" {% if modo_visualizacao %}disabled{% endif %} onchange="atualizarContextoDiario()"
+                        class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                        <option value="" {% if not turma_atual %}selected{% endif %}>Todas as turmas</option>
+                        {% for turma in turmas_disponiveis %}
+                        <option value="{{ turma }}" {% if turma == turma_atual %}selected{% endif %}>{{ turma }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <table class="min-w-full divide-y divide-slate-200 text-sm text-left">
+                    <thead class="bg-slate-50 text-xs uppercase tracking-[0.2em] text-slate-500">
+                        <tr>
+                            <th class="px-4 py-3">Matrícula</th>
+                            <th class="px-4 py-3">Aluno</th>
+                            <th class="px-4 py-3">Presente</th>
+                            <th class="px-4 py-3">Nota</th>
+                            <th class="px-4 py-3">Média</th>
+                            <th class="px-4 py-3">Assiduidade</th>
+                            <th class="px-4 py-3">Confirmação Docente</th>
+                            <th class="px-4 py-3">Apto</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 bg-white">
+                        {% for aluno in alunos %}
+                        {% set resumo = resumo_por_aluno.get(aluno.id, {}) %}
+                        <tr id="linhaAluno_{{ aluno.id }}">
+                            {% set lancamento = lancamentos_dia.get(aluno.id, {}) %}
+                            <td class="px-4 py-4 text-xs text-slate-500">{{ aluno.matricula }}</td>
+                            <td class="px-4 py-4 font-semibold text-slate-900">{{ aluno.nome }}</td>
+                            <td class="px-4 py-4">
+                                <label class="inline-flex items-center gap-2 text-slate-600">
+                                    <input type="checkbox" name="presente_{{ aluno.id }}" data-aluno-id="{{ aluno.id }}" {% if lancamento and lancamento.presente %}checked{% endif %} {% if modo_visualizacao %}disabled{% endif %} class="h-4 w-4 rounded border-slate-300 text-indigo-600">
+                                    Sim
+                                </label>
+                                <input type="hidden" id="autoPresenca_{{ aluno.id }}" name="auto_presenca_{{ aluno.id }}" value="0">
+                                <input type="hidden" id="confirmadoPresenca_{{ aluno.id }}" name="confirmado_presenca_{{ aluno.id }}" value="0">
+                            </td>
+                            <td class="px-4 py-4">
+                                <input type="number" step="0.01" min="0" max="100" name="nota_{{ aluno.id }}"
+                                    value="{{ lancamento.nota if lancamento.nota is not none else '' }}"
+                                    {% if modo_visualizacao %}disabled{% endif %}
+                                    class="w-24 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1 text-sm text-slate-900">
+                            </td>
+                            <td class="px-4 py-4 text-slate-700">{{ resumo.media or '0.00' }}</td>
+                            <td class="px-4 py-4 text-slate-700">{{ resumo.presenca_percentual or '0.0' }}%</td>
+                            <td class="px-4 py-4">
+                                <div id="statusConfirmacao_{{ aluno.id }}" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">Pendente</div>
+                                <button type="button" id="btnConfirmacao_{{ aluno.id }}" data-aluno-id="{{ aluno.id }}" class="mt-1 hidden rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700">Confirmar Manualmente</button>
+                            </td>
+                            <td class="px-4 py-4">
+                                {% if resumo.apto is not none %}
+                                <span class="rounded-full px-3 py-1 text-[11px] font-semibold {% if resumo.apto %}bg-emerald-100 text-emerald-700{% else %}bg-rose-100 text-rose-700{% endif %}">{{ 'Sim' if resumo.apto else 'Não' }}</span>
+                                {% else %}
+                                <span class="text-slate-400">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="px-4 py-8 text-center text-slate-400">Nenhum aluno encontrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="rounded-2xl bg-slate-50 p-4 text-slate-700">
+                    <p class="text-xs font-semibold uppercase text-slate-500">Regra de aprovação anual</p>
+                    <p class="text-sm">Média mínima: 70%</p>
+                    <p class="text-sm">Frequência mínima: 75%</p>
+                </div>
+                {% if not modo_visualizacao %}
+                <button type="submit" class="rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-700 transition">Salvar Diário</button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {% if not modo_visualizacao and reconhecimento_disponivel %}
+    <script>
+        let streamCamera = null;
+
+        function aguardar(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function iniciarCamera() {
+            const video = document.getElementById('cameraVideo');
+            try {
+                streamCamera = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                video.srcObject = streamCamera;
+            } catch (erro) {
+                alert('Não foi possível acessar a câmera. Verifique permissões do navegador.');
+            }
+        }
+
+        function marcarPresencaSugerida(alunoId, marcar) {
+            const checkbox = document.querySelector(`input[name="presente_${alunoId}"]`);
+            if (checkbox) {
+                checkbox.checked = !!marcar;
+            }
+        }
+
+        function obterCampo(idBase, alunoId) {
+            return document.getElementById(`${idBase}_${alunoId}`);
+        }
+
+        function obterLinhaAluno(alunoId) {
+            return document.getElementById(`linhaAluno_${alunoId}`);
+        }
+
+        function limparDestaqueLinha(alunoId) {
+            const linha = obterLinhaAluno(alunoId);
+            if (!linha) return;
+            linha.classList.remove('bg-amber-50', 'ring-1', 'ring-inset', 'ring-amber-200', 'bg-emerald-50', 'ring-emerald-200');
+        }
+
+        function destacarLinhaPendente(alunoId) {
+            const linha = obterLinhaAluno(alunoId);
+            if (!linha) return;
+            limparDestaqueLinha(alunoId);
+            linha.classList.add('bg-amber-50', 'ring-1', 'ring-inset', 'ring-amber-200');
+        }
+
+        function destacarLinhaConfirmada(alunoId) {
+            const linha = obterLinhaAluno(alunoId);
+            if (!linha) return;
+            limparDestaqueLinha(alunoId);
+            linha.classList.add('bg-emerald-50', 'ring-1', 'ring-inset', 'ring-emerald-200');
+        }
+
+        function exibirPendenciaConfirmacao(alunoId) {
+            const status = obterCampo('statusConfirmacao', alunoId);
+            const botao = obterCampo('btnConfirmacao', alunoId);
+            const auto = obterCampo('autoPresenca', alunoId);
+            const confirmado = obterCampo('confirmadoPresenca', alunoId);
+            if (!status || !botao || !auto || !confirmado) return;
+
+            auto.value = '1';
+            confirmado.value = '0';
+            status.innerText = 'Pendente';
+            status.classList.remove('hidden', 'border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+            status.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-700');
+            botao.classList.remove('hidden');
+            destacarLinhaPendente(alunoId);
+        }
+
+        function confirmarPresencaAutomatica(alunoId) {
+            const status = obterCampo('statusConfirmacao', alunoId);
+            const botao = obterCampo('btnConfirmacao', alunoId);
+            const confirmado = obterCampo('confirmadoPresenca', alunoId);
+            if (!status || !botao || !confirmado) return;
+
+            confirmado.value = '1';
+            status.innerText = 'Confirmado';
+            status.classList.remove('border-amber-200', 'bg-amber-50', 'text-amber-700');
+            status.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+            botao.classList.add('hidden');
+            destacarLinhaConfirmada(alunoId);
+        }
+
+        function aoMudarPresenca(alunoId) {
+            const checkbox = document.querySelector(`input[name="presente_${alunoId}"]`);
+            const auto = obterCampo('autoPresenca', alunoId);
+            const confirmado = obterCampo('confirmadoPresenca', alunoId);
+            const status = obterCampo('statusConfirmacao', alunoId);
+            const botao = obterCampo('btnConfirmacao', alunoId);
+
+            if (!checkbox || !auto || !confirmado || !status || !botao) return;
+
+            if (!checkbox.checked) {
+                auto.value = '0';
+                confirmado.value = '0';
+                status.classList.add('hidden');
+                botao.classList.add('hidden');
+                limparDestaqueLinha(alunoId);
+            }
+        }
+
+        function validarEnvioDiario() {
+            const pendentes = [];
+            document.querySelectorAll('input[id^="autoPresenca_"]').forEach(campoAuto => {
+                const alunoId = campoAuto.id.replace('autoPresenca_', '');
+                const auto = campoAuto.value === '1';
+                const confirmado = (obterCampo('confirmadoPresenca', alunoId)?.value || '0') === '1';
+                const marcado = document.querySelector(`input[name="presente_${alunoId}"]`)?.checked;
+
+                if (auto && marcado && !confirmado) {
+                    pendentes.push(alunoId);
+                }
+            });
+
+            if (pendentes.length > 0) {
+                alert('Existem presenças automáticas sem confirmação manual visível do professor. Confirme antes de salvar.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function atualizarContextoDiario() {
+            const dataAula = document.querySelector('input[name="data_aula"]')?.value || '';
+            const serie = document.getElementById('filtroSerie')?.value || '';
+            const turma = document.getElementById('filtroTurma')?.value || '';
+            const materia = document.querySelector('input[name="materia"]')?.value || '';
+            const params = new URLSearchParams();
+            if (materia) params.set('materia', materia);
+            if (dataAula) params.set('data', dataAula);
+            if (serie) params.set('serie', serie);
+            if (turma) params.set('turma', turma);
+            window.location.href = `{% if modo_visualizacao %}{{ url_for('diario_visualizacao', professor_id=professor_id_atual) }}{% else %}{{ url_for('diario') }}{% endif %}?${params.toString()}`;
+        }
+
+        async function capturarSequencia(video, canvas, quantidade) {
+            const capturas = [];
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+
+            for (let i = 0; i < quantidade; i += 1) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                capturas.push(canvas.toDataURL('image/jpeg', 0.92));
+                if (i < quantidade - 1) {
+                    await aguardar(220);
+                }
+            }
+
+            return capturas;
+        }
+
+        async function capturarESugerirPresenca() {
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('cameraCanvas');
+            const resultado = document.getElementById('resultadoReconhecimento');
+            const alunoId = document.getElementById('alunoReconhecimento').value;
+            const qtdCapturas = Math.max(1, Math.min(10, parseInt(document.getElementById('qtdCapturas').value || '3', 10)));
+            const materia = document.querySelector('input[name="materia"]').value;
+            const dataAula = document.querySelector('input[name="data_aula"]').value;
+
+            if (!video.srcObject) {
+                resultado.innerText = 'Inicie a câmera antes de capturar.';
+                return;
+            }
+
+            resultado.innerText = `Capturando ${qtdCapturas} imagem(ns) e processando...`;
+
+            try {
+                const capturas = await capturarSequencia(video, canvas, qtdCapturas);
+                const resposta = await fetch("{{ url_for('diario_reconhecimento') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        aluno_id: alunoId,
+                        materia: materia,
+                        data_aula: dataAula,
+                        capturas: capturas
+                    })
+                });
+
+                const dados = await resposta.json();
+                if (!resposta.ok || !dados.ok) {
+                    resultado.innerText = dados.erro || 'Falha no reconhecimento.';
+                    return;
+                }
+
+                if (dados.sugestao_presenca) {
+                    marcarPresencaSugerida(dados.aluno_id, true);
+                    exibirPendenciaConfirmacao(dados.aluno_id);
+                    resultado.innerText = `Sugerido PRESENTE para ${dados.aluno_nome}. Capturas: ${dados.qtd_capturas}, Matches: ${dados.qtd_matches}, Score médio: ${dados.score_medio}, Limiar: ${dados.limiar}.`;
+                } else {
+                    aoMudarPresenca(dados.aluno_id);
+                    resultado.innerText = `Sem sugestão automática para ${dados.aluno_nome}. Capturas: ${dados.qtd_capturas}, Matches: ${dados.qtd_matches}, Score médio: ${dados.score_medio}, Limiar: ${dados.limiar}.`;
+                }
+            } catch (erro) {
+                resultado.innerText = 'Erro de comunicação com o servidor de reconhecimento.';
+            }
+        }
+
+        document.getElementById('btnIniciarCamera').addEventListener('click', iniciarCamera);
+        document.getElementById('btnCapturarReconhecimento').addEventListener('click', capturarESugerirPresenca);
+
+        document.querySelectorAll('input[name^="presente_"][data-aluno-id]').forEach(el => {
+            el.addEventListener('change', () => {
+                aoMudarPresenca(el.getAttribute('data-aluno-id'));
+            });
+        });
+
+        document.querySelectorAll('button[id^="btnConfirmacao_"][data-aluno-id]').forEach(el => {
+            el.addEventListener('click', () => {
+                confirmarPresencaAutomatica(el.getAttribute('data-aluno-id'));
+            });
+        });
+    </script>
+    {% endif %}
+
+    <script>
+        if (typeof atualizarContextoDiario !== 'function') {
+            function atualizarContextoDiario() {
+                const dataAula = document.querySelector('input[name="data_aula"]')?.value || '';
+                const serie = document.getElementById('filtroSerie')?.value || '';
+                const turma = document.getElementById('filtroTurma')?.value || '';
+                const materia = document.querySelector('input[name="materia"]')?.value || '';
+                const params = new URLSearchParams();
+                if (materia) params.set('materia', materia);
+                if (dataAula) params.set('data', dataAula);
+                if (serie) params.set('serie', serie);
+                if (turma) params.set('turma', turma);
+                window.location.href = `{% if modo_visualizacao %}{{ url_for('diario_visualizacao', professor_id=professor_id_atual) }}{% else %}{{ url_for('diario') }}{% endif %}?${params.toString()}`;
+            }
+        }
+    </script>
+</body>
+
+</html>
